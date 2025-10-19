@@ -1,22 +1,44 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import './Checklist.css';
 
 const Checklist = () => {
+  const [checkedState, setCheckedState] = useState({});
+  const importFileRef = useRef(null);
+
+  useEffect(() => {
+    // Initialize state from localStorage if available
+    try {
+      const savedState = localStorage.getItem('checklistState');
+      if (savedState) {
+        setCheckedState(JSON.parse(savedState));
+      }
+    } catch (e) {
+      console.error("Failed to parse checklist state from localStorage", e);
+    }
+  }, []);
+
+  useEffect(() => {
+    // Save state to localStorage whenever it changes
+    localStorage.setItem('checklistState', JSON.stringify(checkedState));
+  }, [checkedState]);
+
   const clearChecklist = () => {
     if (confirm("Are you sure you want to clear the checklist? This is usually done at the start of a new inventory shift.")) {
-      const checkboxes = document.querySelectorAll('#checklist input[type="checkbox"]');
-      checkboxes.forEach(function(checkbox) {
-        checkbox.checked = false;
-      });
+      setCheckedState({});
     }
   };
 
-  const saveChecklist = () => {
-    const checkboxes = document.querySelectorAll('#checklist input[type="checkbox"]');
-    const state = {};
-    checkboxes.forEach(checkbox => {
-      state[checkbox.id] = checkbox.checked;
+  const getChecklistState = () => {
+    const stateToSave = {};
+    Object.values(items).flat().forEach(ingredient => {
+      const id = ingredient.toLowerCase().replace(/\s+/g, '-');
+      stateToSave[id] = !!checkedState[id];
     });
+    return stateToSave;
+  };
+
+  const saveChecklist = () => {
+    const state = getChecklistState();
     const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -29,7 +51,7 @@ const Checklist = () => {
   };
 
   const importChecklist = () => {
-    document.getElementById('import-file').click();
+    importFileRef.current.click();
   };
 
   const handleFileChange = (event) => {
@@ -39,12 +61,12 @@ const Checklist = () => {
       reader.onload = (e) => {
         try {
           const state = JSON.parse(e.target.result);
-          const checkboxes = document.querySelectorAll('#checklist input[type="checkbox"]');
-          checkboxes.forEach(checkbox => {
-            if (state[checkbox.id] !== undefined) {
-              checkbox.checked = state[checkbox.id];
-            }
-          });
+          // Filter out any keys that don't correspond to an item
+          const newState = {};
+          for (const id in state) {
+            newState[id] = !!state[id];
+          }
+          setCheckedState(newState);
         } catch (error) {
           alert('Error parsing JSON file.');
         }
@@ -54,12 +76,8 @@ const Checklist = () => {
   };
 
   const copyState = () => {
-    const checkboxes = document.querySelectorAll('#checklist input[type="checkbox"]');
-    const state = {};
-    checkboxes.forEach(checkbox => {
-      state[checkbox.id] = checkbox.checked;
-    });
-    const stateString = JSON.stringify(state, null, 2);
+    const stateToCopy = getChecklistState();
+    const stateString = JSON.stringify(stateToCopy, null, 2);
     navigator.clipboard.writeText(stateString).then(() => {
       alert('Checklist state copied to clipboard!');
     }, () => {
@@ -71,12 +89,12 @@ const Checklist = () => {
     navigator.clipboard.readText().then(stateString => {
       try {
         const state = JSON.parse(stateString);
-        const checkboxes = document.querySelectorAll('#checklist input[type="checkbox"]');
-        checkboxes.forEach(checkbox => {
-          if (state[checkbox.id] !== undefined) {
-            checkbox.checked = state[checkbox.id];
-          }
-        });
+        // Filter out any keys that don't correspond to an item
+        const newState = {};
+        for (const id in state) {
+            newState[id] = !!state[id];
+        }
+        setCheckedState(newState);
         alert('Checklist state loaded from clipboard!');
       } catch (error) {
         alert('Error parsing checklist state from clipboard.');
@@ -90,11 +108,9 @@ const Checklist = () => {
     let text = 'Kona Pokehouse Checklist\n\n';
     const stations = Object.entries(items);
     stations.forEach(([station, ingredients]) => {
-      const checkedItems = ingredients.filter(ingredient => {
-        const id = ingredient.toLowerCase().replace(/\s+/g, '-');
-        const checkbox = document.getElementById(id);
-        return checkbox && checkbox.checked;
-      });
+      const checkedItems = ingredients.filter(ingredient => 
+        checkedState[ingredient.toLowerCase().replace(/\s+/g, '-')]
+      );
 
       if (checkedItems.length > 0) {
         text += `## ${station}\n`;
@@ -120,11 +136,9 @@ const Checklist = () => {
     let text = 'Kona Pokehouse - Missing Items\n\n';
     const stations = Object.entries(items);
     stations.forEach(([station, ingredients]) => {
-      const missingItems = ingredients.filter(ingredient => {
-        const id = ingredient.toLowerCase().replace(/\s+/g, '-');
-        const checkbox = document.getElementById(id);
-        return checkbox && !checkbox.checked;
-      });
+      const missingItems = ingredients.filter(ingredient => 
+        !checkedState[ingredient.toLowerCase().replace(/\s+/g, '-')]
+      );
 
       if (missingItems.length > 0) {
         text += `## ${station}\n`;
@@ -157,11 +171,9 @@ const Checklist = () => {
     report += '--- Items in Stock ---\n\n';
     let checkedItemsFound = false;
     stations.forEach(([station, ingredients]) => {
-      const checkedItems = ingredients.filter(ingredient => {
-        const id = ingredient.toLowerCase().replace(/\s+/g, '-');
-        const checkbox = document.getElementById(id);
-        return checkbox && checkbox.checked;
-      });
+      const checkedItems = ingredients.filter(ingredient => 
+        checkedState[ingredient.toLowerCase().replace(/\s+/g, '-')]
+      );
 
       if (checkedItems.length > 0) {
         checkedItemsFound = true;
@@ -180,11 +192,9 @@ const Checklist = () => {
     report += '--- Missing Items ---\n\n';
     let missingItemsFound = false;
     stations.forEach(([station, ingredients]) => {
-      const missingItems = ingredients.filter(ingredient => {
-        const id = ingredient.toLowerCase().replace(/\s+/g, '-');
-        const checkbox = document.getElementById(id);
-        return checkbox && !checkbox.checked;
-      });
+      const missingItems = ingredients.filter(ingredient => 
+        !checkedState[ingredient.toLowerCase().replace(/\s+/g, '-')]
+      );
 
       if (missingItems.length > 0) {
         missingItemsFound = true;
@@ -205,6 +215,10 @@ const Checklist = () => {
     }, () => {
       alert('Failed to copy inventory report to clipboard.');
     });
+  };
+
+  const handleCheckboxChange = (id) => {
+    setCheckedState(prevState => ({ ...prevState, [id]: !prevState[id] }));
   };
 
   const items = {
@@ -283,7 +297,11 @@ const Checklist = () => {
               const id = ingredient.toLowerCase().replace(/\s+/g, '-');
               return (
                 <div className="checklist-item" key={id}>
-                  <input type="checkbox" id={id} />
+                  <input
+                    type="checkbox"
+                    id={id}
+                    checked={!!checkedState[id]}
+                    onChange={() => handleCheckboxChange(id)} />
                   <label htmlFor={id}>{ingredient}</label>
                 </div>
               );
@@ -303,7 +321,7 @@ const Checklist = () => {
         <button onClick={pasteState} className="action-button">Paste State</button>
         <button onClick={copyCheckedItems} className="action-button">Copy Checked Items</button>
         <button onClick={copyMissingItems} className="action-button">Copy Missing Items</button>
-        <input type="file" id="import-file" style={{ display: 'none' }} onChange={handleFileChange} accept=".json" />
+        <input type="file" ref={importFileRef} style={{ display: 'none' }} onChange={handleFileChange} accept=".json" />
       </div>
     </div>
   );
