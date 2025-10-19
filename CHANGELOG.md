@@ -12,6 +12,19 @@ Note: Entries below summarize the intent behind each commit for traceability.
 - 2025-10-19T01:41:27-07:00 — a4d51878 — chore: add GEMINI.md and update Checklist.jsx and dist build
 	- Why: Add project notes/documentation and iterate on the checklist behavior; refresh the production build artifacts for deployment.
 
+- 2025-10-19 — Branding and PWA groundwork
+	- Why: Rebrand the app from the Vite template to “Kona Pokehouse” and lay the groundwork for Progressive Web App (PWA) support so the app can be installed and feel native on mobile/desktop.
+	- Changes made:
+		- Set the HTML document title to “Kona Pokehouse”.
+		- Removed the default Vite favicon reference to prepare for custom app icons required by PWA manifests.
+		- Updated README with project-specific details and usage.
+	- What’s needed to complete PWA support (next steps):
+		- Add a Web App Manifest at `public/manifest.webmanifest` with fields like `name`, `short_name`, `start_url`, `display`, `background_color`, `theme_color`, and `icons` (including 192×192, 512×512, and maskable variants).
+		- Reference the manifest in `index.html` via `<link rel="manifest" href="/manifest.webmanifest" />` and include `<meta name="theme-color" content="#XXXXXX" />` to color the browser UI.
+		- Provide platform icons: `favicon.ico`, `apple-touch-icon` (180×180), and Android/Chrome icons referenced in the manifest.
+		- Register a service worker (e.g., using `vite-plugin-pwa` or a custom `sw.js`) from `src/main.jsx` to cache the app shell and enable offline/“Add to Home Screen”.
+		- Ensure the app is served over HTTPS and that the manifest `scope` and `start_url` reflect the deployed base path (GitHub Pages base `/kona-pokehouse/`).
+
 ## 2025-10-15
 
 - 2025-10-15T16:14:05-07:00 — 50c03fc8 — refactor: Improve touch-friendliness of checklist
